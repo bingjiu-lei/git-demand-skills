@@ -357,6 +357,25 @@ git log --oneline <baseBranch>..origin/<baseBranch>
 powershell -NoProfile -ExecutionPolicy Bypass -File "<clone-path>\scripts\demand-submit.ps1" 197462 "需求标题" -All
 ```
 
+指定仓库路径或别名：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "<clone-path>\scripts\demand-submit.ps1" 197462 "需求标题" -All -RepoPath "D:\gitProgram\onelink-web-doctor"
+powershell -NoProfile -ExecutionPolicy Bypass -File "<clone-path>\scripts\demand-submit.ps1" 197462 "需求标题" -All -RepoPath "医生前端"
+```
+
+`-RepoPath` 支持绝对路径或别名。别名定义在 `~/.claude/repo-aliases.json`，例如：
+
+```json
+{
+  "护士前端": "D:/gitProgram/onelink-web-nurse",
+  "医生前端": "D:/gitProgram/onelink-web-doctor",
+  "医生后端": "D:/gitProgram/onelink-micro-cis-doctor"
+}
+```
+
+每个用户在本地创建自己的别名文件，脚本找不到该文件时会忽略。如果 `-RepoPath` 是绝对路径且目录存在，直接使用；如果是别名，从配置文件解析。
+
 指定基线分支，例如基于 `release-1.44`：
 
 ```powershell

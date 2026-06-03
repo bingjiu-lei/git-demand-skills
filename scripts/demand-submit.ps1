@@ -10,6 +10,7 @@ param(
     [string]$Remote = "origin",
     [string]$BranchPrefix = "",
     [string]$BranchName = "",
+    [string]$RepoPath = "",
     [switch]$NoPush,
     [switch]$AllowEmpty,
     [switch]$StagedOnly,
@@ -24,9 +25,16 @@ function Run-Git {
         [Parameter(Mandatory = $true)]
         [string[]]$GitArgs
     )
-    & git -c core.quotepath=false @GitArgs
-    if ($LASTEXITCODE -ne 0) {
-        throw "git $($GitArgs -join ' ') failed with exit code $LASTEXITCODE"
+    $output = & git -c core.quotepath=false @GitArgs 2>&1
+    $exitCode = $LASTEXITCODE
+    $output |
+        Where-Object { $_ -is [string] -and $_ -notmatch 'LF will be replaced by CRLF' } |
+        ForEach-Object { Write-Host $_ }
+    $output |
+        Where-Object { $_ -is [System.Management.Automation.ErrorRecord] -and $_.Exception.Message -notmatch 'LF will be replaced by CRLF' } |
+        ForEach-Object { Write-Host $_.Exception.Message }
+    if ($exitCode -ne 0) {
+        throw "git $($GitArgs -join ' ') failed with exit code $exitCode"
     }
 }
 
@@ -35,11 +43,15 @@ function Git-Output {
         [Parameter(Mandatory = $true)]
         [string[]]$GitArgs
     )
-    $output = & git -c core.quotepath=false @GitArgs
-    if ($LASTEXITCODE -ne 0) {
-        throw "git $($GitArgs -join ' ') failed with exit code $LASTEXITCODE"
+    $output = & git -c core.quotepath=false @GitArgs 2>&1
+    $exitCode = $LASTEXITCODE
+    $output |
+        Where-Object { $_ -is [System.Management.Automation.ErrorRecord] -and $_.Exception.Message -notmatch 'LF will be replaced by CRLF' } |
+        ForEach-Object { Write-Host $_.Exception.Message }
+    if ($exitCode -ne 0) {
+        throw "git $($GitArgs -join ' ') failed with exit code $exitCode"
     }
-    return $output
+    return @($output | Where-Object { $_ -is [string] })
 }
 
 function Has-Ref {
@@ -67,6 +79,41 @@ function Rename-LocalBranchIfExists {
     $backupBranch = "$Branch-backup-$Stamp"
     Write-Host "Local target branch already exists. Renaming it to: $backupBranch"
     Run-Git @("branch", "-m", $Branch, $backupBranch)
+}
+
+# --- Repo alias resolution ---
+function Resolve-RepoAlias {
+    param([string]$InputPath)
+    if ([string]::IsNullOrWhiteSpace($InputPath)) {
+        return ""
+    }
+    # If it's an absolute path that exists, use it directly
+    if ([System.IO.Path]::IsPathRooted($InputPath) -and (Test-Path -LiteralPath $InputPath)) {
+        return $InputPath
+    }
+    # Try alias lookup from user config
+    $aliasFile = Join-Path $env:USERPROFILE ".claude\repo-aliases.json"
+    if (Test-Path -LiteralPath $aliasFile) {
+        try {
+            $aliases = Get-Content -LiteralPath $aliasFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            $resolved = $aliases.PSObject.Properties | Where-Object {
+                $_.Name -eq $InputPath
+            } | Select-Object -First 1
+            if ($resolved -and (Test-Path -LiteralPath $resolved.Value)) {
+                Write-Host "Resolved alias '$InputPath' -> $($resolved.Value)"
+                return $resolved.Value
+            }
+        } catch {
+            Write-Host "Warning: Failed to parse $aliasFile : $($_.Exception.Message)"
+        }
+    }
+    # Not an absolute path and not a known alias
+    return ""
+}
+
+$resolvedRepo = Resolve-RepoAlias -InputPath $RepoPath
+if (-not [string]::IsNullOrWhiteSpace($resolvedRepo)) {
+    Set-Location -LiteralPath $resolvedRepo
 }
 
 $repoRoot = (Git-Output @("rev-parse", "--show-toplevel") | Select-Object -First 1)
@@ -165,8 +212,15 @@ try {
 
     if ($createdStash) {
         Write-Section "Restore Work"
-        & git -c core.quotepath=false stash pop $stashRef
-        if ($LASTEXITCODE -ne 0) {
+        $popOutput = & git -c core.quotepath=false stash pop $stashRef 2>&1
+        $popExitCode = $LASTEXITCODE
+        $popOutput |
+            Where-Object { $_ -is [string] -and $_ -notmatch 'LF will be replaced by CRLF' } |
+            ForEach-Object { Write-Host $_ }
+        $popOutput |
+            Where-Object { $_ -is [System.Management.Automation.ErrorRecord] -and $_.Exception.Message -notmatch 'LF will be replaced by CRLF' } |
+            ForEach-Object { Write-Host $_.Exception.Message }
+        if ($popExitCode -ne 0) {
             Write-Host ""
             Write-Host "Conflict or restore failure occurred during stash pop."
             Write-Host "The repository has been left for manual/AI conflict resolution."

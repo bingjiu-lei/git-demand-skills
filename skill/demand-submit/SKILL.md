@@ -25,7 +25,10 @@ When maintaining this git-demand-skills repository itself, use a Chinese commit 
 
 Do this with minimal explanation. Do not write a long analysis before running commands.
 
-1. Work in the user's current Git repository.
+1. Resolve the target repository:
+   - If the user mentions a project alias (e.g. "护士前端", "医生后端", "common包"), pass it as `-RepoPath`. The script will look it up from `~/.claude/repo-aliases.json`.
+   - If the user gives an explicit path, pass it as `-RepoPath`.
+   - If neither, the script uses the current working directory.
 2. Check status:
 
 ```powershell
@@ -66,11 +69,38 @@ Different base branch:
 powershell -NoProfile -ExecutionPolicy Bypass -File "{{DEMAND_SUBMIT_SCRIPT_PATH}}" 197462 "demand title" -BaseBranch release-1.44 -StagedOnly
 ```
 
+Specify repo path (absolute path or alias from `~/.claude/repo-aliases.json`):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "{{DEMAND_SUBMIT_SCRIPT_PATH}}" 197462 "demand title" -StagedOnly -RepoPath "D:\gitProgram\onelink-web-doctor"
+powershell -NoProfile -ExecutionPolicy Bypass -File "{{DEMAND_SUBMIT_SCRIPT_PATH}}" 197462 "demand title" -StagedOnly -RepoPath "医生前端"
+```
+
+## Repo Aliases
+
+The `-RepoPath` parameter supports aliases defined in `~/.claude/repo-aliases.json`. Example:
+
+```json
+{
+  "护士前端": "D:/gitProgram/onelink-web-nurse",
+  "医生前端": "D:/gitProgram/onelink-web-doctor",
+  "医生后端": "D:/gitProgram/onelink-micro-cis-doctor"
+}
+```
+
+Each user creates their own file locally. The script ignores it if the file does not exist. When the user mentions a project by alias (e.g. "护士前端", "医生后端", "common包"), pass it as `-RepoPath` — the script will resolve it automatically.
+
 ## Windows Terminal Rules
 
 Assume Windows PowerShell unless the tool explicitly says otherwise.
 
-Use:
+Prefer using `-RepoPath` over `Set-Location`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "{{DEMAND_SUBMIT_SCRIPT_PATH}}" 197462 "demand title" -StagedOnly -RepoPath "医生前端"
+```
+
+Only use `Set-Location` when `-RepoPath` is not available:
 
 ```powershell
 Set-Location -LiteralPath "D:\path\repo"
@@ -85,8 +115,6 @@ cd /d D:\repo & git status
 timeout /t 30 /nobreak >nul
 ```
 
-Prefer a tool `workdir` parameter over changing directories in shell text.
-
 ## Safety Rules
 
 - Never commit to `master`.
@@ -97,3 +125,4 @@ Prefer a tool `workdir` parameter over changing directories in shell text.
 - Do not auto-merge, reset, rebase, or force-push when base branch pull fails.
 - If the script stops on conflict, preserve both sides' intent; do not blindly choose current/incoming changes.
 - If the original run used `-StagedOnly`, finish conflicts by re-staging only intended files, not `git add -A`.
+- When the user mentions a project by alias (e.g. "护士前端", "医生后端", "common包"), pass it as `-RepoPath`. Do not manually `Set-Location` first.
