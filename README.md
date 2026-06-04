@@ -286,20 +286,19 @@ git push -u origin 2063657-11
 
 1. 在 `<clone-path>\demand-skill-logs` 下记录当前状态和 patch。
 2. stash 当前已跟踪和未跟踪的改动。
-3. 切到基础分支，默认是 `master`。
-4. 使用 `git pull --ff-only` 拉取最新 `origin/<baseBranch>`。
-5. 切到需求分支：
+3. fetch 远端并从最新 `origin/<baseBranch>` 直接创建需求分支：
+   - 不切到本地基础分支，不执行 `pull`，避免远端频繁推送导致 `--ff-only` 失败；
    - 如果本地已有同名需求分支，先改名备份为 `<需求号>-backup-时间戳`；
    - 不复用远程同名需求分支；
    - 始终从最新 `origin/<baseBranch>` 创建新的需求分支。
-6. 恢复刚才 stash 的改动。
-7. 如果发生冲突，立即停止，不 commit、不 push。
-8. 如果没有冲突：
+4. 恢复刚才 stash 的改动。
+5. 如果发生冲突，立即停止，不 commit、不 push。
+6. 如果没有冲突：
    - `-All` 模式会执行 `git add -A`，提交全部改动；
    - `-StagedOnly` 模式只提交脚本运行前已经暂存的文件。
    - 如果脚本发现同时存在 `Staged` 和 `Unstaged / Untracked`，但命令里没有显式传 `-StagedOnly` 或 `-All`，它会停止，防止 AI 误提交全部文件。
 
-## 日志、冲突和拉取失败时怎么办
+## 日志和冲突处理
 
 脚本每次执行前会把当前仓库状态写入：
 
@@ -327,19 +326,11 @@ staged-files.txt
 查看 git status，打开冲突文件，结合上下文合并冲突，运行 git diff --check，必要时运行项目的最小验证，确认无误后再 git add、commit、push。
 ```
 
-如果 `git pull --ff-only` 失败，说明本地基础分支不能直接快进到远程基础分支。此时不要自动 merge、不要 reset，也不要强推。应该先检查：
-
-```powershell
-git status --short --branch
-git log --oneline origin/<baseBranch>..<baseBranch>
-git log --oneline <baseBranch>..origin/<baseBranch>
-```
-
-确认本地基础分支是否有额外提交、是否落后远程、是否需要人工处理后，再继续提交流程。
+脚本不再切换到本地基础分支或执行 `pull`，而是直接从 `origin/<baseBranch>` 创建需求分支，因此不会因为远端频繁推送而失败。
 
 ## 分支策略
 
-脚本默认不会复用本地或远程已有的需求分支。每次提交都会先更新基础分支，然后从最新的 `origin/<baseBranch>` 创建一个干净的需求分支。
+脚本默认不会复用本地或远程已有的需求分支。每次提交都会从最新的 `origin/<baseBranch>` 创建一个干净的需求分支。
 
 如果本地已经存在同名需求分支，例如 `190281`，脚本会先把它改名为：
 
@@ -411,12 +402,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "<clone-path>\scripts\demand
 - 不会往 `master` 提交。
 - 不会创建或合并 Merge Request。
 - 遇到冲突会停止，不会推送冲突代码。
-- `git pull --ff-only` 失败时不会自动 merge 或 reset。
+- 不切到本地基础分支，不执行 `pull`，直接从 `origin/<baseBranch>` 创建需求分支。
 - `-StagedOnly` 模式不会提交未暂存文件。
 - 如果同时存在已暂存和未暂存/未跟踪文件，AI 应该直接使用 `-StagedOnly`，不要反复询问；只有用户明确要求提交全部时才使用 `-All`。
 - 不会复用本地或远程旧需求分支，会从最新 `origin/<baseBranch>` 创建干净分支。
 - 执行前会在项目目录生成日志和 patch，便于失败后分析。
-- 拉取基础分支时使用 `git pull --ff-only`，避免自动 merge。
+- 直接从远端 `origin/<baseBranch>` 创建需求分支，避免本地基础分支落后导致失败。
 - 建议同一时间只让一个工具执行 Git 操作，避免 IDEA、Codex、CatPaw 同时切分支。
 
 

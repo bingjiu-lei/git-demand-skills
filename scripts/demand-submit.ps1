@@ -203,8 +203,6 @@ if ($statusBefore.Count -gt 0) {
 try {
     Write-Section "Update Base"
     Run-Git @("fetch", $Remote, "--prune")
-    Run-Git @("checkout", $BaseBranch)
-    Run-Git @("pull", "--ff-only", $Remote, $BaseBranch)
 
     Write-Section "Checkout Target Branch"
     Rename-LocalBranchIfExists -Branch $targetBranch -Stamp $stamp
