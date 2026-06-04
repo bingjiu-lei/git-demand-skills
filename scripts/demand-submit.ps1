@@ -25,14 +25,20 @@ function Run-Git {
         [Parameter(Mandatory = $true)]
         [string[]]$GitArgs
     )
-    $output = & git -c core.quotepath=false @GitArgs 2>&1
-    $exitCode = $LASTEXITCODE
+    $savedEAP = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & git -c core.quotepath=false @GitArgs 2>&1
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $savedEAP
+    }
     $output |
         Where-Object { $_ -is [string] -and $_ -notmatch 'LF will be replaced by CRLF' } |
         ForEach-Object { Write-Host $_ }
     $output |
-        Where-Object { $_ -is [System.Management.Automation.ErrorRecord] -and $_.Exception.Message -notmatch 'LF will be replaced by CRLF' } |
-        ForEach-Object { Write-Host $_.Exception.Message }
+        Where-Object { $_ -is [System.Management.Automation.ErrorRecord] -and $_.ToString() -notmatch 'LF will be replaced by CRLF' } |
+        ForEach-Object { Write-Host $_.ToString() }
     if ($exitCode -ne 0) {
         throw "git $($GitArgs -join ' ') failed with exit code $exitCode"
     }
@@ -43,15 +49,24 @@ function Git-Output {
         [Parameter(Mandatory = $true)]
         [string[]]$GitArgs
     )
-    $output = & git -c core.quotepath=false @GitArgs 2>&1
-    $exitCode = $LASTEXITCODE
+    $savedEAP = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & git -c core.quotepath=false @GitArgs 2>&1
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $savedEAP
+    }
     $output |
-        Where-Object { $_ -is [System.Management.Automation.ErrorRecord] -and $_.Exception.Message -notmatch 'LF will be replaced by CRLF' } |
-        ForEach-Object { Write-Host $_.Exception.Message }
+        Where-Object { $_ -is [string] -and $_ -notmatch 'LF will be replaced by CRLF' } |
+        ForEach-Object { Write-Host $_ }
+    $output |
+        Where-Object { $_ -is [System.Management.Automation.ErrorRecord] -and $_.ToString() -notmatch 'LF will be replaced by CRLF' } |
+        ForEach-Object { Write-Host $_.ToString() }
     if ($exitCode -ne 0) {
         throw "git $($GitArgs -join ' ') failed with exit code $exitCode"
     }
-    return @($output | Where-Object { $_ -is [string] })
+    return @($output | Where-Object { $_ -is [string] -and $_ -notmatch 'LF will be replaced by CRLF' })
 }
 
 function Has-Ref {
