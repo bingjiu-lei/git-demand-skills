@@ -5,6 +5,13 @@ description: Fast GitLab demand submit workflow. Use when the user gives a deman
 
 # Demand Submit
 
+## Demand Title Integrity (Mandatory)
+
+- Treat the title supplied by the user as immutable input.
+- Pass it to the script and use it in the commit message exactly as provided, character for character.
+- Do not shorten, rewrite, correct, normalize, translate, add, remove, or change any character in the title, including spaces and punctuation.
+- If no title was provided, ask for it; never infer or generate one.
+
 Run the standalone script:
 
 ```powershell
